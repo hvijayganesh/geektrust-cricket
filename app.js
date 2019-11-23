@@ -5,7 +5,7 @@ const argv = process.argv
 
 class App {
   constructor(type, weather) {
-    this.match = new Match(type, weather);
+    this.match = new Match({type, weather});
   }
 
   randomize(team1, team2) {

@@ -1,10 +1,11 @@
 "use strict";
+const _ = require('lodash');
 
 class Match {
-  constructor(type, weather) {
-    this.type = type;
-    this.weather = weather;
-    this.toss;
+  constructor(data) {
+    if (data) {
+      _.extend(this, data);
+    }
   }
 
   getToss(team1, team2) {
