@@ -5,6 +5,7 @@ class Team {
   constructor(name) {
     this.name = name;
     this.preference = {};
+    this.isBatting = false;
   }
 
   setPreferences(type, weather, action) {
