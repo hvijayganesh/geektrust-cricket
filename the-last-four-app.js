@@ -1,74 +1,35 @@
 "use strict";
-const Match = require('./src/models/match');
-const ScoreBoard = require('./src/models/score-board');
-const Team = require('./src/models/team');
-const Player = require('./src/models/player');
+const BaseApp = require('./base-app');
 const argv = require('yargs').argv;
-const Utils = require('./src/common/utils');
-const _ = require('lodash');
 
-class TheLastFourApp {
+class TheLastFourApp extends BaseApp {
   constructor(input) {
-    this.match = new Match({type: input.type, weather: input.weather});
+    super(input);
     this.input = input;
   }
 
-  async init(simlateOvers) {
+  _displayMatchResult(team) {
     let me = this;
-    try {
-      await me.readPlayerStats();
-      me.initPlayers();
-      me.initTeams();
-      me.initCurrentScoreBoard();
-      simlateOvers();
-    } catch (error) {
-      throw error;
+    let scoreBoard = me.match.scoreBoard;
+    if (me.result == 'Won') {
+      this.utils.printToFile(`${team.name} won by ${scoreBoard.wktsLeft} wickets and ${scoreBoard.ballsRemaining} balls remaining\n\n`);
+    } else {
+      this.utils.printToFile(`${team.name} lost by ${scoreBoard.runsNeeded} runs\n\n`);
     }
+    me._displayPlayerScoreCard(team);
   }
 
-  async readPlayerStats() {
-    try {
-      this.playerStatsMap = await Utils.readAndParsePlayerStats();
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  initPlayers() {
+  matchSummary() {
     let me = this;
-    var battingOrder = 0;
-    _.forOwn(me.playerStatsMap, function(probability, player) {
-      let name = player;
-      let runs = {
-        scored: 0,
-        ballsFaced: 0,
-        probability: probability
-      };
-      battingOrder++;
-      me.match.players.push((new Player({name, runs, battingOrder})));
-     });
-  }
-
-  initTeams() {
-    let team1 = new Team('Lengaburu');
-    let team2 = new Team('Enchai');
-    this.match.teams.push(team1);
-    this.match.teams.push(team2);
-    if (this.input.battingTeam == 'Lengaburu') {
-      team1.isBatting = true;
-    }
-  }
-
-  initCurrentScoreBoard() {
-    this.match.scoreBoard = new ScoreBoard({
-      oversLeft: this.input.oversLeft,
-      runsNeeded: this.input.runsNeeded,
-      wktsLeft: this.input.wktsLeft
-    });
+    me._displayMatchResult(app.match.battingTeam, app.match.bowlingTeam);
+    me._displayCommentary(app.match.battingTeam, true);
   }
 }
 
 let app = new TheLastFourApp(argv);
 app.init(() => {
-  app.match.simulateOvers();
+  app.match.simulateOvers(app.match.battingTeam);
+  app.initOutputFile(app.input.outputFile);
+  app.clearFileContents();
+  app.matchSummary();
 });

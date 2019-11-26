@@ -7,7 +7,6 @@ class Match {
     if (data) {
       _.extend(this, data);
     }
-    this.players = [];
     this.teams = [];
     this.result;
   }
@@ -17,7 +16,7 @@ class Match {
     return random < 0.5 ? team1.getPreferences(this.type, this.weather) : team2.getPreferences(this.type, this.weather);
   }
 
-  _updatePlayerScoreAndScoreBoard(player, scoreBoard, runs, ball, isOut = false) {
+  _updatePlayerScoreAndScoreBoard(player, scoreBoard, runs, ball, isOut = false, team) {
     player.runs.scored += runs;
     player.runs.ballsFaced++;
     let perBallData = {
@@ -25,8 +24,8 @@ class Match {
       runs: runs,
       is_out: isOut
     };
-    scoreBoard.runsPerBall[ball] = perBallData;
-    scoreBoard.runsNeeded -= runs;
+    team.runsPerBall[ball] = perBallData;
+    team.battingFirst ? scoreBoard.runsNeeded += runs : scoreBoard.runsNeeded -= runs;
   }
 
   _changeStrike(remainingPlayers) {
@@ -36,37 +35,52 @@ class Match {
     return remainingPlayers[0];
   }
 
-  _simulateEveryBall(striker, scoreBoard, remainingPlayers, ball) {
+  _simulateEveryBall(striker, scoreBoard, remainingPlayers, ball, team) {
     let me = this;
     let runsScored = striker.runScoredInOneBall();
     switch (runsScored) {
       case 'dot':
-        me._updatePlayerScoreAndScoreBoard(striker, scoreBoard, 0, ball);
+        me._updatePlayerScoreAndScoreBoard(striker, scoreBoard, 0, ball, false, team);
         break;
       case '1':
       case '3':
       case '5':
-        me._updatePlayerScoreAndScoreBoard(striker, scoreBoard, Number(runsScored), ball);
+        me._updatePlayerScoreAndScoreBoard(striker, scoreBoard, Number(runsScored), ball, false, team);
         striker = me._changeStrike(remainingPlayers);
         break;
       case 'out':
-          me._updatePlayerScoreAndScoreBoard(striker, scoreBoard, 0, ball, true);
-          let wicket = remainingPlayers.shift();
-          remainingPlayers.push(wicket)
+          me._updatePlayerScoreAndScoreBoard(striker, scoreBoard, 0, ball, true, team);
+          let playerGotOut = remainingPlayers.shift();
+          playerGotOut.isOut = true;
+          remainingPlayers.push(playerGotOut)
           striker = me._changeStrike(remainingPlayers);
-          striker.isOut = true;
           scoreBoard.wktsLeft-- ;
           break;
       default:
-        me._updatePlayerScoreAndScoreBoard(striker, scoreBoard, Number(runsScored), ball);
+        me._updatePlayerScoreAndScoreBoard(striker, scoreBoard, Number(runsScored), ball, false, team);
         break;
     }
     return striker;
   }
 
-  simulateOvers() {
+  _checkTargetReached(team, scoreBoard, i, totalBalls) {
     let me = this;
-    let players = me.players;
+    if ((scoreBoard.wktsLeft == 0 || i == totalBalls) && scoreBoard.runsNeeded > 0) {
+      me.result = 'Lost';
+      scoreBoard.ballsRemaining = totalBalls - i;
+      return true;
+    } else if (scoreBoard.runsNeeded < 0) {
+      me.result = 'Won';
+      team.hasWon = true;
+      scoreBoard.ballsRemaining = totalBalls - i;
+      return true;
+    }
+    return false;
+  }
+
+  simulateOvers(team) {
+    let me = this;
+    let players = team.players;
     let scoreBoard = me.scoreBoard;
     let remainingPlayers = players;
     let striker = remainingPlayers[0];
@@ -74,38 +88,25 @@ class Match {
     for(let i = 1; i <= totalBalls; i++) {
       let ball = i % 6;
       if (ball === 1 && scoreBoard.oversLeft >=1) {
-        scoreBoard.runsPerOver[scoreBoard.oversLeft] = scoreBoard.runsNeeded;
+        team.runsPerOver[scoreBoard.oversLeft] = scoreBoard.runsNeeded;
         scoreBoard.oversLeft--;
       }
-      striker = me._simulateEveryBall(striker, scoreBoard, remainingPlayers, i);
-      if ((scoreBoard.wktsLeft == 0 || i == totalBalls) && scoreBoard.runsNeeded > 0) {
-        me.result = 'Lost';
-        break;
-      } else if (scoreBoard.runsNeeded == 0) {
-        me.result = 'Won';
-        scoreBoard.ballsRemaining = totalBalls - i;
-        break;
-      } 
+      striker = me._simulateEveryBall(striker, scoreBoard, remainingPlayers, i, team);
+      if (!team.battingFirst) {
+        if(me._checkTargetReached(team, scoreBoard, i, totalBalls))
+          break;
+      }
     }
-    me.summary();
   }
 
-  _displayMatchResult() {
+  _displayMatchResult(team) {
     let me = this;
-    let battingTeam, bowlingTeam;
-    if (me.teams[0].isBatting) {
-      battingTeam = me.teams[0].name;
-      bowlingTeam = me.teams[1].name;
-    } else {
-      battingTeam = me.teams[1].name;
-      bowlingTeam = me.teams[0].name;
-    }
     if (me.result == 'Won') {
-      Utils.printToFile(`${battingTeam} won by ${me.scoreBoard.wktsLeft} wickets and ${me.scoreBoard.ballsRemaining} balls remaining\n\n`);
+      Utils.printToFile(`${team.name} won by ${me.scoreBoard.wktsLeft} wickets and ${me.scoreBoard.ballsRemaining} balls remaining\n\n`);
     } else {
-      Utils.printToFile(`${bowlingTeam} won by ${me.scoreBoard.runsNeeded} runs\n\n`);
+      Utils.printToFile(`${team.name} lost by ${me.scoreBoard.runsNeeded} runs\n\n`);
     }
-    _.forEach(_.sortBy(me.players, ['battingOrder']), (player) => {
+    _.forEach(_.sortBy(team.players, ['battingOrder']), (player) => {
       if (player.runs.scored || player.runs.ballsFaced) {
         Utils.printToFile(`${player.name} - ${player.runs.scored}${player.isOut ? '' : '*'} (${player.runs.ballsFaced} balls)\n`);
       }
@@ -113,20 +114,20 @@ class Match {
     Utils.printToFile(`\n`);
   }
 
-  _displayCommentary() {
+  _displayCommentary(team) {
     let me = this;
     Utils.printToFile(`Sample Commentary\n`);
-    let oversLeft = me.scoreBoard.runsPerOver.length - 1;
+    let oversLeft = team.runsPerOver.length - 1;
     for (let i = oversLeft, j = 1, l = 0; i > 0; i--, l++) {
-      if (me.scoreBoard.runsPerOver[i] != undefined) {
-        Utils.printToFile(`\n${i} overs left. ${me.scoreBoard.runsPerOver[i]} runs to win\n\n`)
+      if (team.runsPerOver[i] != undefined) {
+        Utils.printToFile(`\n${i} overs left. ${team.runsPerOver[i]} runs to win\n\n`)
       }
       for (let k = j, m = 1; j < k+6  ; j++, m++) {
-        if (me.scoreBoard.runsPerBall[j] != undefined) {
-          if (me.scoreBoard.runsPerBall[j].is_out) {
-            Utils.printToFile(`${l}.${m} ${me.scoreBoard.runsPerBall[j].player} got out\n`)
+        if (team.runsPerBall[j] != undefined) {
+          if (team.runsPerBall[j].is_out) {
+            Utils.printToFile(`${l}.${m} ${team.runsPerBall[j].player} got out\n`)
           } else {
-            Utils.printToFile(`${l}.${m} ${me.scoreBoard.runsPerBall[j].player} scores ${me.scoreBoard.runsPerBall[j].runs}\n`)
+            Utils.printToFile(`${l}.${m} ${team.runsPerBall[j].player} scores ${team.runsPerBall[j].runs}\n`)
           }
         } else {
           return;
@@ -135,9 +136,9 @@ class Match {
     }
   }
 
-  summary() {
-    this._displayMatchResult();
-    this._displayCommentary();
+  summary(team) {
+    this._displayMatchResult(team);
+    this._displayCommentary(team);
   }
 }
 

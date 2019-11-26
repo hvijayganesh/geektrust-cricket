@@ -22,6 +22,15 @@ class Player {
     }
     return -1;
   }
+
+  static create(name, probability, battingOrder) {
+    let runs = {
+      scored: 0,
+      ballsFaced: 0,
+      probability: probability
+    };
+    return new Player({name, runs, battingOrder})
+  }
 }
 
 module.exports = Player;

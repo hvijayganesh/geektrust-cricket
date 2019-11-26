@@ -6,8 +6,6 @@ class ScoreBoard {
     if (data) {
       _.extend(this, data);
     }
-    this.runsPerBall = new Array(this.oversLeft * 6);
-    this.runsPerOver = [];
   }
 }
 
