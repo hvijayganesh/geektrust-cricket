@@ -98,48 +98,6 @@ class Match {
       }
     }
   }
-
-  _displayMatchResult(team) {
-    let me = this;
-    if (me.result == 'Won') {
-      Utils.printToFile(`${team.name} won by ${me.scoreBoard.wktsLeft} wickets and ${me.scoreBoard.ballsRemaining} balls remaining\n\n`);
-    } else {
-      Utils.printToFile(`${team.name} lost by ${me.scoreBoard.runsNeeded} runs\n\n`);
-    }
-    _.forEach(_.sortBy(team.players, ['battingOrder']), (player) => {
-      if (player.runs.scored || player.runs.ballsFaced) {
-        Utils.printToFile(`${player.name} - ${player.runs.scored}${player.isOut ? '' : '*'} (${player.runs.ballsFaced} balls)\n`);
-      }
-    });
-    Utils.printToFile(`\n`);
-  }
-
-  _displayCommentary(team) {
-    let me = this;
-    Utils.printToFile(`Sample Commentary\n`);
-    let oversLeft = team.runsPerOver.length - 1;
-    for (let i = oversLeft, j = 1, l = 0; i > 0; i--, l++) {
-      if (team.runsPerOver[i] != undefined) {
-        Utils.printToFile(`\n${i} overs left. ${team.runsPerOver[i]} runs to win\n\n`)
-      }
-      for (let k = j, m = 1; j < k+6  ; j++, m++) {
-        if (team.runsPerBall[j] != undefined) {
-          if (team.runsPerBall[j].is_out) {
-            Utils.printToFile(`${l}.${m} ${team.runsPerBall[j].player} got out\n`)
-          } else {
-            Utils.printToFile(`${l}.${m} ${team.runsPerBall[j].player} scores ${team.runsPerBall[j].runs}\n`)
-          }
-        } else {
-          return;
-        }
-      }
-    }
-  }
-
-  summary(team) {
-    this._displayMatchResult(team);
-    this._displayCommentary(team);
-  }
 }
 
 module.exports = Match;

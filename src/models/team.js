@@ -27,21 +27,6 @@ class Team {
     }
   }
 
-  initPlayers() {
-    let me = this;
-    var battingOrder = 0;
-    _.forOwn(me.playerStatsMap, function(probability, player) {
-      let name = player;
-      let runs = {
-        scored: 0,
-        ballsFaced: 0,
-        probability: probability
-      };
-      battingOrder++;
-      me.match.players.push((new Player({name, runs, battingOrder})));
-     });
-  }
-
   async _readPlayerStats(file) {
     try {
       return await Utils.readAndParsePlayerStats(file);
