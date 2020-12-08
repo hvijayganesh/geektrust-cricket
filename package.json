@@ -18,7 +18,7 @@
   },
   "homepage": "https://github.com/hvijayganesh/geektrust-cricket#readme",
   "dependencies": {
-    "fast-csv": "^3.4.0",
+    "fast-csv": "^4.3.6",
     "lodash": "^4.17.19",
     "yargs": "^15.0.2"
   },
